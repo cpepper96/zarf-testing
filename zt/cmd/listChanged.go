@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/MakeNowJust/heredoc"
+	"github.com/cpepper96/zarf-testing/pkg/zarf"
 	"github.com/spf13/cobra"
 )
 
@@ -38,14 +39,32 @@ func newListChangedCmd() *cobra.Command {
 }
 
 func listChanged(cmd *cobra.Command, _ []string) error {
-	fmt.Println("Listing changed Zarf packages - NOT IMPLEMENTED YET")
-	fmt.Println("This command will detect changed Zarf packages via Git")
+	// Get basic flags for package discovery
+	remote, err := cmd.Flags().GetString("remote")
+	if err != nil {
+		return err
+	}
 	
-	// TODO: Implement actual changed package detection
-	// 1. Load configuration
-	// 2. Use Git to find changed files  
-	// 3. Identify packages that contain changed zarf.yaml files
-	// 4. Output list of changed package directories
+	targetBranch, err := cmd.Flags().GetString("target-branch")
+	if err != nil {
+		return err
+	}
 	
-	return fmt.Errorf("list-changed command not yet implemented - coming in Task 2.1 (Package Discovery)")
+	zarfDirs, err := cmd.Flags().GetStringSlice("zarf-dirs")
+	if err != nil {
+		return err
+	}
+	
+	// Find changed packages
+	changedPackages, err := zarf.FindChangedPackages(remote, targetBranch, zarfDirs)
+	if err != nil {
+		return fmt.Errorf("failed to find changed packages: %w", err)
+	}
+	
+	// Output each changed package directory
+	for _, pkg := range changedPackages {
+		fmt.Println(pkg)
+	}
+	
+	return nil
 }

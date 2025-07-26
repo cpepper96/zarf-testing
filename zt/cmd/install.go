@@ -18,9 +18,6 @@ import (
 	"fmt"
 
 	"github.com/MakeNowJust/heredoc"
-	"github.com/cpepper96/zarf-testing/pkg/chart"
-	"github.com/cpepper96/zarf-testing/pkg/config"
-
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 )
@@ -85,28 +82,15 @@ func addInstallFlags(flags *flag.FlagSet) {
 }
 
 func install(cmd *cobra.Command, _ []string) error {
-	fmt.Println("Installing charts...")
-
-	printConfig, err := cmd.Flags().GetBool("print-config")
-	if err != nil {
-		return err
-	}
-	configuration, err := config.LoadConfiguration(cfgFile, cmd, printConfig)
-	if err != nil {
-		return fmt.Errorf("failed loading configuration: %w", err)
-	}
-
-	testing, err := chart.NewTesting(*configuration)
-	if err != nil {
-		fmt.Println(err)
-	}
-	results, err := testing.InstallCharts()
-	testing.PrintResults(results)
-
-	if err != nil {
-		return fmt.Errorf("failed installing charts: %w", err)
-	}
-
-	fmt.Println("All charts installed successfully")
-	return nil
+	fmt.Println("Zarf package deployment testing - NOT IMPLEMENTED YET")
+	fmt.Println("This command will deploy and test Zarf packages")
+	
+	// TODO: Implement actual Zarf package deployment testing
+	// 1. Load configuration
+	// 2. Discover Zarf packages to test
+	// 3. Deploy packages using Zarf SDK
+	// 4. Run deployment validation tests
+	// 5. Clean up after testing
+	
+	return fmt.Errorf("install command not yet implemented - coming in Task 2.4 (Deployment Testing)")
 }

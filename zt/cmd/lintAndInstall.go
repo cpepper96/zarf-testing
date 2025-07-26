@@ -17,9 +17,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/cpepper96/zarf-testing/pkg/chart"
-	"github.com/cpepper96/zarf-testing/pkg/config"
-
 	"github.com/spf13/cobra"
 )
 
@@ -40,28 +37,16 @@ func newLintAndInstallCmd() *cobra.Command {
 }
 
 func lintAndInstall(cmd *cobra.Command, _ []string) error {
-	fmt.Println("Linting and installing charts...")
-
-	printConfig, err := cmd.Flags().GetBool("print-config")
-	if err != nil {
-		return err
-	}
-	configuration, err := config.LoadConfiguration(cfgFile, cmd, printConfig)
-	if err != nil {
-		return fmt.Errorf("failed loading configuration: %w", err)
-	}
-
-	testing, err := chart.NewTesting(*configuration)
-	if err != nil {
-		return err
-	}
-	results, err := testing.LintAndInstallCharts()
-	testing.PrintResults(results)
-
-	if err != nil {
-		return fmt.Errorf("failed linting and installing charts: %w", err)
-	}
-
-	fmt.Println("All charts linted and installed successfully")
-	return nil
+	fmt.Println("Zarf package lint and deploy testing - NOT IMPLEMENTED YET")
+	fmt.Println("This command will lint and deploy Zarf packages in one workflow")
+	
+	// TODO: Implement actual Zarf package lint and deploy testing
+	// 1. Load configuration
+	// 2. Discover Zarf packages to test
+	// 3. Lint packages using Zarf SDK
+	// 4. Deploy packages for testing
+	// 5. Run deployment validation tests
+	// 6. Clean up after testing
+	
+	return fmt.Errorf("lint-and-install command not yet implemented - combines Task 2.2 and 2.4")
 }
