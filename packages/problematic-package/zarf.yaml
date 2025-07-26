@@ -1,0 +1,5 @@
+kind: InvalidKind
+metadata:
+  name: this-is-a-very-long-package-name-that-exceeds-the-sixty-three-character-limit-for-kubernetes-names
+  # No version
+  # No description

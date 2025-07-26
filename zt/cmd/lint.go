@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/MakeNowJust/heredoc"
+	"github.com/cpepper96/zarf-testing/pkg/zarf"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 )
@@ -76,14 +77,78 @@ func addLintFlags(flags *flag.FlagSet) {
 }
 
 func lint(cmd *cobra.Command, _ []string) error {
-	fmt.Println("Zarf package linting - NOT IMPLEMENTED YET")
-	fmt.Println("This command will validate Zarf packages using the Zarf SDK")
+	fmt.Println("Linting Zarf packages...")
 	
-	// TODO: Implement actual Zarf package linting
-	// 1. Load configuration 
-	// 2. Discover Zarf packages
-	// 3. Validate each package using Zarf SDK
-	// 4. Report results
+	// Get flags for package discovery
+	zarfDirs, err := cmd.Flags().GetStringSlice("zarf-dirs")
+	if err != nil {
+		return err
+	}
 	
-	return fmt.Errorf("lint command not yet implemented - coming in Task 2.2 (Zarf SDK Integration)")
+	all, err := cmd.Flags().GetBool("all")
+	if err != nil {
+		return err
+	}
+	
+	packages, err := cmd.Flags().GetStringSlice("charts") // TODO: Change flag name to "packages"
+	if err != nil {
+		return err
+	}
+	
+	var packageDirs []string
+	
+	// Determine which packages to lint
+	if len(packages) > 0 {
+		// Specific packages specified
+		packageDirs = packages
+		fmt.Printf("Linting specified packages: %v\n", packages)
+	} else if all {
+		// Lint all packages
+		packageDirs, err = zarf.FindZarfPackages(zarfDirs)
+		if err != nil {
+			return fmt.Errorf("failed to find packages: %w", err)
+		}
+		fmt.Printf("Linting all packages in directories: %v\n", zarfDirs)
+	} else {
+		// Default: lint changed packages
+		remote, err := cmd.Flags().GetString("remote")
+		if err != nil {
+			return err
+		}
+		targetBranch, err := cmd.Flags().GetString("target-branch")
+		if err != nil {
+			return err
+		}
+		
+		packageDirs, err = zarf.FindChangedPackages(remote, targetBranch, zarfDirs)
+		if err != nil {
+			return fmt.Errorf("failed to find changed packages: %w", err)
+		}
+		
+		if len(packageDirs) == 0 {
+			fmt.Println("No changed packages found")
+			return nil
+		}
+		fmt.Printf("Linting changed packages: %v\n", packageDirs)
+	}
+	
+	// Create validator
+	validator := zarf.NewPackageValidator()
+	
+	// Validate packages
+	results, err := validator.ValidatePackages(packageDirs)
+	if err != nil {
+		return fmt.Errorf("failed to validate packages: %w", err)
+	}
+	
+	// Print results
+	zarf.PrintValidationResults(results)
+	
+	// Check if there were any errors
+	if zarf.HasValidationErrors(results) {
+		return fmt.Errorf("package validation failed")
+	}
+	
+	fmt.Println("\nAll packages linted successfully")
+	return nil
 }

@@ -1,0 +1,4 @@
+kind: ZarfPackageConfig
+metadata:
+  # Missing name and version - should trigger validation errors
+  description: Invalid test package missing required fields
