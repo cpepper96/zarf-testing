@@ -24,11 +24,11 @@ import (
 	"github.com/Masterminds/semver"
 	helmignore "helm.sh/helm/v3/pkg/ignore"
 
-	"github.com/helm/chart-testing/v3/pkg/config"
-	"github.com/helm/chart-testing/v3/pkg/exec"
-	"github.com/helm/chart-testing/v3/pkg/ignore"
-	"github.com/helm/chart-testing/v3/pkg/tool"
-	"github.com/helm/chart-testing/v3/pkg/util"
+	"github.com/cpepper96/zarf-testing/pkg/config"
+	"github.com/cpepper96/zarf-testing/pkg/exec"
+	"github.com/cpepper96/zarf-testing/pkg/ignore"
+	"github.com/cpepper96/zarf-testing/pkg/tool"
+	"github.com/cpepper96/zarf-testing/pkg/util"
 )
 
 const maxNameLength = 63

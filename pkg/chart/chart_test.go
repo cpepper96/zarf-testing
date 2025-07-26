@@ -19,8 +19,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/helm/chart-testing/v3/pkg/config"
-	"github.com/helm/chart-testing/v3/pkg/util"
+	"github.com/cpepper96/zarf-testing/pkg/config"
+	"github.com/cpepper96/zarf-testing/pkg/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	helmignore "helm.sh/helm/v3/pkg/ignore"
