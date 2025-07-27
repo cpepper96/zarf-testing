@@ -17,9 +17,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cpepper96/zarf-testing/pkg/config"
+	"github.com/cpepper96/zarf-testing/pkg/output"
 	"github.com/cpepper96/zarf-testing/pkg/zarf"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
@@ -70,14 +72,42 @@ func addInstallFlags(flags *flag.FlagSet) {
 		Name for the release. If not specified, is set to the chart name and a random 
 		identifier.`))
 	flags.Bool("skip-clean-up", false, "Skip resources clean-up after testing")
+	
+
 }
 
 func install(cmd *cobra.Command, _ []string) error {
-	fmt.Println("🚀 Zarf package deployment testing")
+	// Setup output formatter
+	outputFormat, _ := cmd.Flags().GetString("output")
+	noColor, _ := cmd.Flags().GetBool("no-color")
+	githubGroups, _ := cmd.Flags().GetBool("github-groups")
+	
+	var format output.Format
+	switch strings.ToLower(outputFormat) {
+	case "json":
+		format = output.FormatJSON
+	case "github":
+		format = output.FormatGitHub
+	default:
+		format = output.FormatText
+	}
+	
+	formatter := output.NewFormatter(&output.Config{
+		Format:       format,
+		NoColor:      noColor,
+		GithubGroups: githubGroups,
+		Writer:       os.Stdout,
+	})
+	
+	formatter.Section("Zarf Package Deployment Testing")
 	
 	// Load configuration
 	configuration, err := config.LoadConfiguration("", cmd, false)
 	if err != nil {
+		formatter.Error("Failed to load configuration: %v", err)
+		if format == output.FormatJSON {
+			formatter.PrintJSON()
+		}
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
@@ -96,76 +126,114 @@ func install(cmd *cobra.Command, _ []string) error {
 	}
 
 	if all {
-		fmt.Println("📦 Finding all packages...")
+		formatter.Progress("Finding all packages...")
 		allPackages, err := zarf.FindZarfPackages(dirs)
 		if err != nil {
+			formatter.Error("Failed to find packages: %v", err)
+			if format == output.FormatJSON {
+				formatter.PrintJSON()
+			}
 			return fmt.Errorf("failed to find packages: %w", err)
 		}
 		packagesToTest = allPackages
 	} else if len(packages) > 0 {
-		fmt.Printf("📦 Testing specified packages: %v\n", packages)
+		formatter.Info("Testing specified packages: %v", packages)
 		// Validate that specified packages exist
 		for _, pkg := range packages {
 			if !zarf.IsZarfPackage(pkg) {
+				formatter.Error("Package not found: %s", pkg)
+				if format == output.FormatJSON {
+					formatter.PrintJSON()
+				}
 				return fmt.Errorf("package not found: %s", pkg)
 			}
 		}
 		packagesToTest = packages
 	} else {
-		fmt.Println("📦 Finding changed packages...")
+		formatter.Progress("Finding changed packages...")
 		changedPackages, err := zarf.FindChangedPackages(configuration.Remote, configuration.TargetBranch, dirs)
 		if err != nil {
+			formatter.Error("Failed to find changed packages: %v", err)
+			if format == output.FormatJSON {
+				formatter.PrintJSON()
+			}
 			return fmt.Errorf("failed to find changed packages: %w", err)
 		}
 		packagesToTest = changedPackages
 	}
 
 	if len(packagesToTest) == 0 {
-		fmt.Println("✅ No packages to test")
+		formatter.Success("No packages to test")
+		if format == output.FormatJSON {
+			formatter.PrintJSON()
+		}
 		return nil
 	}
 
-	fmt.Printf("🔧 Testing %d packages: %v\n", len(packagesToTest), packagesToTest)
+	formatter.Info("Testing %d packages: %v", len(packagesToTest), packagesToTest)
 
 	// Initialize deployer
 	deployer, err := zarf.NewDeployer(configuration)
 	if err != nil {
+		formatter.Error("Failed to initialize deployer: %v", err)
+		if format == output.FormatJSON {
+			formatter.PrintJSON()
+		}
 		return fmt.Errorf("failed to initialize deployer: %w", err)
 	}
 
+	// Create progress bar for package testing
+	progressBar := formatter.NewProgressBar("Testing packages", len(packagesToTest))
+	
 	// Test each package
 	overallSuccess := true
 	for i, packagePath := range packagesToTest {
-		fmt.Printf("\n📋 [%d/%d] Testing package: %s\n", i+1, len(packagesToTest), packagePath)
+		formatter.Step(i+1, len(packagesToTest), "Testing package: %s", packagePath)
+		progressBar.Update(i, fmt.Sprintf("Testing %s", packagePath))
 		
 		result, err := deployer.TestPackage(packagePath)
 		if err != nil {
-			fmt.Printf("❌ Package %s failed: %v\n", packagePath, err)
+			formatter.Error("Package %s failed: %v", packagePath, err)
 			overallSuccess = false
 			continue
 		}
 
 		if result.Success {
-			fmt.Printf("✅ Package %s passed all tests\n", packagePath)
+			formatter.Success("Package %s passed all tests", packagePath)
 		} else {
-			fmt.Printf("❌ Package %s failed validation\n", packagePath)
+			formatter.Error("Package %s failed validation", packagePath)
 			for _, testResult := range result.ComponentTests {
 				if !testResult.Success {
-					fmt.Printf("  - %s: %s\n", testResult.ComponentName, testResult.Message)
+					formatter.Warning("  - %s: %s", testResult.ComponentName, testResult.Message)
 				}
 			}
 			overallSuccess = false
 		}
 	}
 
-	fmt.Println("\n🏁 Deployment testing complete")
+	progressBar.Finish("Testing complete")
+	formatter.EndSection()
+	
+	formatter.Section("Results")
 	
 	if overallSuccess {
-		fmt.Println("✅ All packages passed deployment testing")
-		return nil
+		formatter.Success("All packages passed deployment testing")
 	} else {
-		fmt.Println("❌ Some packages failed deployment testing")
-		os.Exit(1)
-		return nil
+		formatter.Error("Some packages failed deployment testing")
 	}
+	
+	formatter.EndSection()
+	
+	// Output JSON if requested
+	if format == output.FormatJSON {
+		if err := formatter.PrintJSON(); err != nil {
+			return fmt.Errorf("failed to output JSON: %w", err)
+		}
+	}
+	
+	if !overallSuccess {
+		os.Exit(1)
+	}
+	
+	return nil
 }

@@ -78,6 +78,10 @@ func addCommonFlags(flags *pflag.FlagSet) {
 	flags.Bool("github-groups", false, heredoc.Doc(`
 		Change the delimiters for github to create collapsible groups
 		for command output`))
+	
+	// Output formatting flags
+	flags.String("output", "text", "Output format: text, json, github")
+	flags.Bool("no-color", false, "Disable colored output")
 }
 
 func addCommonLintAndInstallFlags(flags *pflag.FlagSet) {

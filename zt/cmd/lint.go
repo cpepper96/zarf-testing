@@ -16,8 +16,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/MakeNowJust/heredoc"
+	"github.com/cpepper96/zarf-testing/pkg/output"
 	"github.com/cpepper96/zarf-testing/pkg/zarf"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
@@ -62,14 +65,42 @@ func addLintFlags(flags *flag.FlagSet) {
 		Commands will be executed in the same order as provided in the list and will
 		be rendered with go template before being executed.
 		Example: "zarf package inspect {{ .Path }}"`))
+		
+
 }
 
 func lint(cmd *cobra.Command, _ []string) error {
-	fmt.Println("Linting Zarf packages...")
+	// Setup output formatter
+	outputFormat, _ := cmd.Flags().GetString("output")
+	noColor, _ := cmd.Flags().GetBool("no-color")
+	githubGroups, _ := cmd.Flags().GetBool("github-groups")
+	
+	var format output.Format
+	switch strings.ToLower(outputFormat) {
+	case "json":
+		format = output.FormatJSON
+	case "github":
+		format = output.FormatGitHub
+	default:
+		format = output.FormatText
+	}
+	
+	formatter := output.NewFormatter(&output.Config{
+		Format:       format,
+		NoColor:      noColor,
+		GithubGroups: githubGroups,
+		Writer:       os.Stdout,
+	})
+	
+	formatter.Section("Zarf Package Linting")
 	
 	// Get flags for package discovery
 	zarfDirs, err := cmd.Flags().GetStringSlice("zarf-dirs")
 	if err != nil {
+		formatter.Error("Failed to get zarf-dirs flag: %v", err)
+		if format == output.FormatJSON {
+			formatter.PrintJSON()
+		}
 		return err
 	}
 	
