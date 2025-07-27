@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cpepper96/zarf-testing/pkg/config"
 	"github.com/cpepper96/zarf-testing/pkg/exec"
 	"github.com/cpepper96/zarf-testing/pkg/util"
 )
@@ -50,6 +51,12 @@ type PackageDeployer struct {
 	TestNamespace string
 }
 
+// Deployer provides Zarf package deployment testing functionality
+type Deployer struct {
+	config   *config.Configuration
+	deployer *PackageDeployer
+}
+
 // NewPackageDeployer creates a new package deployer
 func NewPackageDeployer() *PackageDeployer {
 	return &PackageDeployer{
@@ -58,6 +65,34 @@ func NewPackageDeployer() *PackageDeployer {
 		SkipCleanup:   false,
 		TestNamespace: "zt-test", // Will be made unique per test
 	}
+}
+
+// NewDeployer creates a new deployer with the given configuration
+func NewDeployer(config *config.Configuration) (*Deployer, error) {
+	deployer := &Deployer{
+		config:   config,
+		deployer: NewPackageDeployer(),
+	}
+	
+	// Verify kubectl is available
+	executor := exec.NewProcessExecutor(false)
+	_, err := executor.RunProcessAndCaptureOutput("kubectl", "version", "--client")
+	if err != nil {
+		return nil, fmt.Errorf("kubectl not available: %w", err)
+	}
+	
+	// Verify zarf is available
+	_, err = executor.RunProcessAndCaptureOutput("zarf", "version")
+	if err != nil {
+		return nil, fmt.Errorf("zarf CLI not available: %w", err)
+	}
+	
+	return deployer, nil
+}
+
+// TestPackage deploys and tests a Zarf package
+func (d *Deployer) TestPackage(packagePath string) (*DeploymentResult, error) {
+	return d.deployer.DeployPackage(packagePath)
 }
 
 // DeployPackage deploys and tests a Zarf package
