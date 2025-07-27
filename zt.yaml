@@ -1,0 +1,10 @@
+# Zarf Testing Configuration
+zarf-dirs:
+  - packages
+  - examples
+remote: origin
+target-branch: main
+check-version-increment: true
+validate-image-pinning: true
+deployment-timeout: 15m
+test-timeout: 10m

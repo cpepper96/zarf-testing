@@ -86,9 +86,18 @@ func install(cmd *cobra.Command, _ []string) error {
 	all, _ := cmd.Flags().GetBool("all")
 	packages, _ := cmd.Flags().GetStringSlice("packages")
 	
+	// Use ZarfDirs with fallback to ChartDirs for backward compatibility
+	dirs := configuration.ZarfDirs
+	if len(dirs) == 0 {
+		dirs = configuration.ChartDirs
+	}
+	if len(dirs) == 0 {
+		dirs = []string{"packages"} // fallback default
+	}
+
 	if all {
 		fmt.Println("📦 Finding all packages...")
-		allPackages, err := zarf.FindZarfPackages(configuration.ChartDirs)
+		allPackages, err := zarf.FindZarfPackages(dirs)
 		if err != nil {
 			return fmt.Errorf("failed to find packages: %w", err)
 		}
@@ -104,7 +113,7 @@ func install(cmd *cobra.Command, _ []string) error {
 		packagesToTest = packages
 	} else {
 		fmt.Println("📦 Finding changed packages...")
-		changedPackages, err := zarf.FindChangedPackages(configuration.Remote, configuration.TargetBranch, configuration.ChartDirs)
+		changedPackages, err := zarf.FindChangedPackages(configuration.Remote, configuration.TargetBranch, dirs)
 		if err != nil {
 			return fmt.Errorf("failed to find changed packages: %w", err)
 		}
