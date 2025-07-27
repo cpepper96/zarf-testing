@@ -25,25 +25,20 @@ import (
 func newInstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
-		Short: "Install and test a chart",
+		Short: "Install and test a Zarf package",
 		Long: heredoc.Doc(`
-			Run 'helm install', 'helm test', and optionally 'helm upgrade' on
+			Deploy and test Zarf packages on
 
-			* changed charts (default)
-			* specific charts (--charts)
-			* all charts (--all)
+			* changed packages (default)
+			* specific packages (--packages)
+			* all packages (--all)
 
-			in given chart directories. If upgrade (--upgrade) is true, then this
-			command will validate that 'helm test' passes for the following upgrade paths:
+			in given package directories. This command will deploy packages
+			and validate that all components are working correctly.
 
-			* previous chart revision => current chart version (if non-breaking SemVer change)
-			* current chart version => current chart version
-
-			Charts may have multiple custom values files matching the glob pattern
-			'*-values.yaml' in a directory named 'ci' in the root of the chart's
-			directory. The chart is installed and tested for each of these files.
-			If no custom values file is present, the chart is installed and
-			tested with defaults.`),
+			Packages will be deployed to test namespaces and validated
+			for proper functionality. If no test configuration is present,
+			the package is deployed and tested with defaults.`),
 		RunE: install,
 	}
 
@@ -71,14 +66,7 @@ func addInstallFlags(flags *flag.FlagSet) {
 	flags.String("release-name", "", heredoc.Doc(`
 		Name for the release. If not specified, is set to the chart name and a random 
 		identifier.`))
-	flags.String("release-label", "app.kubernetes.io/instance", heredoc.Doc(`
-		The label to be used as a selector when inspecting resources created by charts.
-		This is only used if namespace is specified`))
-	flags.String("helm-extra-set-args", "", heredoc.Doc(`
-		Additional arguments for Helm. Must be passed as a single quoted string
-		(e.g. "--set=name=value"`))
-	flags.Bool("skip-clean-up", false, heredoc.Doc(`
-		Skip resources clean-up. Used if need to continue other flows or keep it around.`))
+	flags.Bool("skip-clean-up", false, "Skip resources clean-up after testing")
 }
 
 func install(cmd *cobra.Command, _ []string) error {

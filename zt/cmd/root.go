@@ -73,43 +73,23 @@ func addCommonFlags(flags *pflag.FlagSet) {
 	flags.StringSlice("excluded-packages", []string{}, heredoc.Doc(`
 		Packages that should be skipped. May be specified multiple times
 		or separate values with commas`))
-	flags.Bool("print-config", false, heredoc.Doc(`
-		Prints the configuration to stderr (caution: setting this may
-		expose sensitive data when helm-repo-extra-args contains passwords)`))
-	flags.Bool("exclude-deprecated", false, "Skip charts that are marked as deprecated")
+	flags.Bool("print-config", false, "Prints the configuration to stderr")
+	flags.Bool("exclude-deprecated", false, "Skip packages that are marked as deprecated")
 	flags.Bool("github-groups", false, heredoc.Doc(`
 		Change the delimiters for github to create collapsible groups
 		for command output`))
-	flags.Bool("use-helmignore", false, "Use .helmignore when identifying changed charts")
 }
 
 func addCommonLintAndInstallFlags(flags *pflag.FlagSet) {
 	addCommonFlags(flags)
 	flags.Bool("all", false, heredoc.Doc(`
-		Process all charts except those explicitly excluded.
-		Disables changed charts detection and version increment checking`))
-	flags.StringSlice("charts", []string{}, heredoc.Doc(`
-		Specific charts to test. Disables changed charts detection and
+		Process all packages except those explicitly excluded.
+		Disables changed package detection and version increment checking`))
+	flags.StringSlice("packages", []string{}, heredoc.Doc(`
+		Specific packages to test. Disables changed package detection and
 		version increment checking. May be specified multiple times
 		or separate values with commas`))
-	flags.StringSlice("chart-repos", []string{}, heredoc.Doc(`
-		Additional chart repositories for dependency resolutions.
-		Repositories should be formatted as 'name=url' (ex: local=http://127.0.0.1:8879/charts).
-		May be specified multiple times or separate values with commas`))
-	flags.String("helm-extra-args", "", heredoc.Doc(`
-		Additional arguments for Helm. Must be passed as a single quoted string
-		(e.g. '--timeout 500s')`))
-	flags.String("helm-lint-extra-args", "", heredoc.Doc(`
-		Additional arguments for Helm lint subcommand. Must be passed as a single quoted string
-		(e.g. '--quiet')`))
-	flags.StringSlice("helm-repo-extra-args", []string{}, heredoc.Doc(`
-		Additional arguments for the 'helm repo add' command to be
-		specified on a per-repo basis with an equals sign as delimiter
-		(e.g. 'myrepo=--username test --password secret'). May be specified
-		multiple times or separate values with commas`))
-	flags.StringSlice("helm-dependency-extra-args", []string{}, heredoc.Doc(`
-		Additional arguments for 'helm dependency build' (e.g. ["--skip-refresh"]`))
-	flags.Bool("debug", false, heredoc.Doc(`
-		Print CLI calls of external tools to stdout (caution: setting this may
-		expose sensitive data when helm-repo-extra-args contains passwords)`))
+
+
+	flags.Bool("debug", false, "Print CLI calls of external tools to stdout")
 }

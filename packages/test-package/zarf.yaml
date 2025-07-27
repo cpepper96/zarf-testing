@@ -5,7 +5,7 @@ metadata:
   version: 1.0.1
 
 components:
-  - name: test-component
+  - name: test-component-1
     required: true
     files:
       - source: README.md

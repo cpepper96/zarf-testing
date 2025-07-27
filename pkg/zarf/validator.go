@@ -16,8 +16,11 @@ package zarf
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/cpepper96/zarf-testing/pkg/exec"
 	"github.com/cpepper96/zarf-testing/pkg/util"
 )
 
@@ -61,9 +64,11 @@ func (v *PackageValidator) ValidatePackage(packagePath string) (*ValidationResul
 		sdkResult, err := v.validateWithSDK(packagePath)
 		if err != nil {
 			// SDK failed, log warning and fall back to basic validation
-			result.Warnings = append(result.Warnings, fmt.Sprintf("Zarf SDK validation failed, falling back to basic validation: %v", err))
+			result.Warnings = append(result.Warnings, fmt.Sprintf("Zarf CLI validation failed, falling back to basic validation: %v", err))
 			v.UseSDK = false // Disable SDK for future calls in this session
 		} else {
+			// Add indicator that we used Zarf CLI validation
+			sdkResult.Warnings = append(sdkResult.Warnings, "Validated using Zarf CLI")
 			return sdkResult, nil
 		}
 	}
@@ -72,11 +77,214 @@ func (v *PackageValidator) ValidatePackage(packagePath string) (*ValidationResul
 	return v.validateBasic(packagePath)
 }
 
-// validateWithSDK attempts to validate using the Zarf SDK
+// validateWithSDK attempts to validate using the Zarf CLI wrapper
 func (v *PackageValidator) validateWithSDK(packagePath string) (*ValidationResult, error) {
-	// TODO: This is where we would implement actual Zarf SDK integration
-	// For now, return an error to trigger fallback
-	return nil, fmt.Errorf("Zarf SDK integration not yet implemented - coming in next iteration")
+	result := &ValidationResult{
+		PackagePath: packagePath,
+		Valid:       true,
+		Errors:      []string{},
+		Warnings:    []string{},
+	}
+	
+	// Try to run zarf dev lint using CLI wrapper
+	executor := exec.NewProcessExecutor(false) // debug = false
+	
+	// Check if zarf CLI is available
+	_, err := executor.RunProcessAndCaptureOutput("zarf", "version")
+	if err != nil {
+		return nil, fmt.Errorf("zarf CLI not found - please install Zarf CLI for full validation: %w", err)
+	}
+	
+	// Run zarf dev lint on the package - we need to capture output even on error
+	cmd, err := executor.CreateProcess("zarf", "dev", "lint")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create zarf process: %w", err)
+	}
+	
+	cmd.Dir = packagePath
+	output, err := cmd.CombinedOutput()
+	outputStr := strings.TrimSpace(string(output))
+	
+	if err != nil {
+		// zarf dev lint failed - parse the output for errors
+		result.Valid = false
+		
+		// Parse output for more specific errors
+		if outputStr != "" {
+			lines := strings.Split(outputStr, "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line != "" && !strings.Contains(line, "Using build directory") {
+					// Parse Zarf log format (timestamp LEVEL message)
+					if strings.Contains(line, " ERR ") {
+						// Extract message after "ERR "
+						parts := strings.SplitN(line, " ERR ", 2)
+						if len(parts) == 2 {
+							result.Errors = append(result.Errors, parts[1])
+						} else {
+							result.Errors = append(result.Errors, line)
+						}
+					} else if strings.Contains(line, " WRN ") {
+						// Extract message after "WRN "
+						parts := strings.SplitN(line, " WRN ", 2)
+						if len(parts) == 2 {
+							result.Warnings = append(result.Warnings, parts[1])
+						} else {
+							result.Warnings = append(result.Warnings, line)
+						}
+					} else if strings.Contains(line, "ERROR") || strings.Contains(line, "error") || 
+					         strings.Contains(line, "FAIL") || strings.Contains(line, "fail") {
+						result.Errors = append(result.Errors, line)
+					}
+				}
+			}
+		}
+	} else {
+		// zarf dev lint succeeded
+		result.Valid = true
+		
+		// Parse output for warnings even on success
+		if outputStr != "" {
+			lines := strings.Split(outputStr, "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line != "" && strings.Contains(line, " WRN ") {
+					// Extract message after "WRN "
+					parts := strings.SplitN(line, " WRN ", 2)
+					if len(parts) == 2 {
+						result.Warnings = append(result.Warnings, parts[1])
+					} else {
+						result.Warnings = append(result.Warnings, line)
+					}
+				}
+			}
+		}
+	}
+	
+	// Additional zarf-testing specific validations (beyond what zarf dev lint does)
+	versionErr := v.validateVersionIncrement(packagePath, result)
+	if versionErr != nil {
+		return nil, fmt.Errorf("version increment validation failed: %w", versionErr)
+	}
+	
+	// Add image pinning validation
+	imagePinErr := v.validateImagePinning(packagePath, result)
+	if imagePinErr != nil {
+		return nil, fmt.Errorf("image pinning validation failed: %w", imagePinErr)
+	}
+	
+	return result, nil
+}
+
+// validateVersionIncrement checks if package version was incremented when components changed
+func (v *PackageValidator) validateVersionIncrement(packagePath string, result *ValidationResult) error {
+	// This is the key validation that zarf dev lint doesn't do
+	// We need to compare with the previous version from Git
+	
+	executor := exec.NewProcessExecutor(false)
+	
+	// Get the current zarf.yaml
+	currentZarfPath := filepath.Join(packagePath, "zarf.yaml")
+	currentContent, err := util.ReadZarfYaml(currentZarfPath)
+	if err != nil {
+		return fmt.Errorf("failed to read current zarf.yaml: %w", err)
+	}
+	
+	// Get the previous version from Git (HEAD~1 or target branch)
+	previousContent, err := executor.RunProcessAndCaptureOutput("git", "show", "HEAD~1:"+filepath.Join(packagePath, "zarf.yaml"))
+	if err != nil {
+		// If we can't get previous version, skip this validation
+		result.Warnings = append(result.Warnings, "Could not retrieve previous package version for comparison")
+		return nil
+	}
+	
+	previousZarf, err := util.UnmarshalZarfYaml([]byte(previousContent))
+	if err != nil {
+		// If we can't parse previous version, skip this validation  
+		result.Warnings = append(result.Warnings, "Could not parse previous package version for comparison")
+		return nil
+	}
+	
+	// Compare versions
+	if currentContent.Metadata.Version == previousZarf.Metadata.Version {
+		// Versions are the same - check if package content changed
+		currentYamlStr, _ := executor.RunProcessAndCaptureOutput("cat", currentZarfPath)
+		if currentYamlStr != previousContent {
+			result.Errors = append(result.Errors, 
+				fmt.Sprintf("Package content changed but version not incremented (still %s)", 
+				currentContent.Metadata.Version))
+			result.Valid = false
+		}
+	}
+	
+	return nil
+}
+
+// validateImagePinning checks if images are pinned with digests (similar to Zarf's warnings)
+func (v *PackageValidator) validateImagePinning(packagePath string, result *ValidationResult) error {
+	// Read the zarf.yaml to check for image references
+	zarfYamlPath := filepath.Join(packagePath, "zarf.yaml")
+	content, err := os.ReadFile(zarfYamlPath)
+	if err != nil {
+		return fmt.Errorf("failed to read zarf.yaml for image pinning validation: %w", err)
+	}
+	
+	contentStr := string(content)
+	
+	// Look for image references in the YAML content
+	// This is a simplified check - in production you'd parse the YAML structure
+	lines := strings.Split(contentStr, "\n")
+	inImagesSection := false
+	
+	for _, line := range lines {
+		originalLine := line
+		line = strings.TrimSpace(line)
+		
+		// Track if we're in an images section
+		if strings.Contains(line, "images:") {
+			inImagesSection = true
+			continue
+		}
+		
+		// Reset if we hit a new section at the same or higher level
+		if !strings.HasPrefix(originalLine, " ") && !strings.HasPrefix(originalLine, "\t") && strings.Contains(line, ":") {
+			inImagesSection = false
+		}
+		
+		// Check for image references in images section
+		if inImagesSection && strings.HasPrefix(line, "- ") {
+			imageName := strings.TrimPrefix(line, "- ")
+			imageName = strings.TrimSpace(imageName)
+			imageName = strings.Trim(imageName, "\"'")
+			
+			// Check if image is pinned with digest
+			if strings.Contains(imageName, ":") && !strings.Contains(imageName, "@sha256:") {
+				// Skip if it's a variable reference
+				if !strings.HasPrefix(imageName, "{{") && !strings.HasPrefix(imageName, "${") {
+					result.Warnings = append(result.Warnings, 
+						fmt.Sprintf("Image not pinned with digest - %s", imageName))
+				}
+			}
+		}
+		
+		// Also check for direct image: references
+		if strings.Contains(line, "image:") {
+			imagePart := strings.Split(line, "image:")[1]
+			imagePart = strings.TrimSpace(imagePart)
+			imagePart = strings.Trim(imagePart, "\"'")
+			
+			// Check if image is pinned with digest
+			if strings.Contains(imagePart, ":") && !strings.Contains(imagePart, "@sha256:") {
+				// Skip if it's a variable reference
+				if !strings.HasPrefix(imagePart, "{{") && !strings.HasPrefix(imagePart, "${") {
+					result.Warnings = append(result.Warnings, 
+						fmt.Sprintf("Image not pinned with digest - %s", imagePart))
+				}
+			}
+		}
+	}
+	
+	return nil
 }
 
 // validateBasic performs basic validation without the Zarf SDK

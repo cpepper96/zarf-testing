@@ -24,8 +24,8 @@ func newLintAndInstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "lint-and-install",
 		Aliases: []string{"li"},
-		Short:   "Lint, install, and test a chart",
-		Long:    "Combines 'lint' and 'install' commands.",
+		Short:   "Lint, install, and test a Zarf package",
+		Long:    "Combines 'lint' and 'install' commands for Zarf packages.",
 		RunE:    lintAndInstall,
 	}
 
