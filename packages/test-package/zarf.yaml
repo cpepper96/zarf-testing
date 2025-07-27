@@ -1,0 +1,12 @@
+kind: ZarfPackageConfig
+metadata:
+  name: test-package
+  description: A test Zarf package for testing zarf-testing
+  version: 1.0.1
+
+components:
+  - name: test-component-1
+    required: true
+    files:
+      - source: README.md
+        target: /tmp/readme.md

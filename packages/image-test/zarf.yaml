@@ -1,0 +1,13 @@
+kind: ZarfPackageConfig
+metadata:
+  name: image-test
+  description: Test package with unpinned images
+  version: 1.0.0
+
+components:
+  - name: test-component
+    required: true
+    images:
+      - nginx:1.21
+      - redis:6.2.6
+      - postgres:13

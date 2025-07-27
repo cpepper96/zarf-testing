@@ -46,6 +46,15 @@ type ChartYaml struct {
 	Maintainers []Maintainer
 }
 
+type ZarfYaml struct {
+	Kind     string `yaml:"kind"`
+	Metadata struct {
+		Name        string `yaml:"name"`
+		Description string `yaml:"description"`
+		Version     string `yaml:"version"`
+	} `yaml:"metadata"`
+}
+
 func Flatten(items []interface{}) ([]string, error) {
 	return doFlatten([]string{}, items)
 }
@@ -177,6 +186,27 @@ func UnmarshalChartYaml(yamlBytes []byte) (*ChartYaml, error) {
 		return nil, fmt.Errorf("could not unmarshal 'Chart.yaml': %w", err)
 	}
 	return chartYaml, nil
+}
+
+// ReadZarfYaml attempts to parse zarf.yaml within the specified directory
+// and return a newly allocated ZarfYaml object. If no zarf.yaml is present
+// or there is an error unmarshaling the file contents, an error will be returned.
+func ReadZarfYaml(path string) (*ZarfYaml, error) {
+	yamlBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not read 'zarf.yaml': %w", err)
+	}
+	return UnmarshalZarfYaml(yamlBytes)
+}
+
+// UnmarshalZarfYaml parses the yaml encoded data and returns a newly
+// allocated ZarfYaml object.
+func UnmarshalZarfYaml(yamlBytes []byte) (*ZarfYaml, error) {
+	zarfYaml := &ZarfYaml{}
+	if err := yaml.Unmarshal(yamlBytes, zarfYaml); err != nil {
+		return nil, fmt.Errorf("could not unmarshal 'zarf.yaml': %w", err)
+	}
+	return zarfYaml, nil
 }
 
 func CompareVersions(left string, right string) (int, error) {
