@@ -49,10 +49,112 @@ type ChartYaml struct {
 type ZarfYaml struct {
 	Kind     string `yaml:"kind"`
 	Metadata struct {
-		Name        string `yaml:"name"`
-		Description string `yaml:"description"`
-		Version     string `yaml:"version"`
+		Name         string `yaml:"name"`
+		Description  string `yaml:"description"`
+		Version      string `yaml:"version"`
+		Architecture string `yaml:"architecture,omitempty"`
+		Deprecated   bool   `yaml:"deprecated,omitempty"`
 	} `yaml:"metadata"`
+	Variables []ZarfVariable  `yaml:"variables,omitempty"`
+	Constants []ZarfConstant  `yaml:"constants,omitempty"`
+	Components []ZarfComponent `yaml:"components,omitempty"`
+}
+
+type ZarfVariable struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description,omitempty"`
+	Default     string `yaml:"default,omitempty"`
+	Prompt      bool   `yaml:"prompt,omitempty"`
+}
+
+type ZarfConstant struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
+}
+
+type ZarfComponent struct {
+	Name        string              `yaml:"name"`
+	Description string              `yaml:"description,omitempty"`
+	Default     bool                `yaml:"default,omitempty"`
+	Required    bool                `yaml:"required,omitempty"`
+	Only        ZarfComponentOnly   `yaml:"only,omitempty"`
+	Group       string              `yaml:"group,omitempty"`
+	DepsWith    []string            `yaml:"depsWith,omitempty"`
+	Files       []ZarfFile          `yaml:"files,omitempty"`
+	Charts      []ZarfChart         `yaml:"charts,omitempty"`
+	Manifests   []ZarfManifest      `yaml:"manifests,omitempty"`
+	Images      []string            `yaml:"images,omitempty"`
+	Repos       []string            `yaml:"repos,omitempty"`
+	DataInjections []ZarfDataInjection `yaml:"dataInjections,omitempty"`
+	Scripts     ZarfComponentScripts `yaml:"scripts,omitempty"`
+}
+
+type ZarfComponentOnly struct {
+	LocalOS      string `yaml:"localOS,omitempty"`
+	Cluster      ZarfComponentOnlyCluster `yaml:"cluster,omitempty"`
+}
+
+type ZarfComponentOnlyCluster struct {
+	Architecture string   `yaml:"architecture,omitempty"`
+	Distros      []string `yaml:"distros,omitempty"`
+}
+
+type ZarfFile struct {
+	Source      string   `yaml:"source"`
+	Target      string   `yaml:"target"`
+	Shasum      string   `yaml:"shasum,omitempty"`
+	Executable  bool     `yaml:"executable,omitempty"`
+	ExtractPath string   `yaml:"extractPath,omitempty"`
+}
+
+type ZarfChart struct {
+	Name         string                 `yaml:"name"`
+	Version      string                 `yaml:"version,omitempty"`
+	Url          string                 `yaml:"url,omitempty"`
+	RepoName     string                 `yaml:"repoName,omitempty"`
+	GitPath      string                 `yaml:"gitPath,omitempty"`
+	LocalPath    string                 `yaml:"localPath,omitempty"`
+	Namespace    string                 `yaml:"namespace,omitempty"`
+	ReleaseName  string                 `yaml:"releaseName,omitempty"`
+	NoWait       bool                   `yaml:"noWait,omitempty"`
+	ValuesFiles  []string               `yaml:"valuesFiles,omitempty"`
+	Variables    []ZarfChartVariable    `yaml:"variables,omitempty"`
+}
+
+type ZarfChartVariable struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description,omitempty"`
+	Path        string `yaml:"path"`
+}
+
+type ZarfManifest struct {
+	Name              string   `yaml:"name"`
+	Namespace         string   `yaml:"namespace,omitempty"`
+	Files             []string `yaml:"files,omitempty"`
+	KustomizeAllowAnyOf []string `yaml:"kustomizeAllowAnyOf,omitempty"`
+	Kustomizations    []string `yaml:"kustomizations,omitempty"`
+}
+
+type ZarfDataInjection struct {
+	Source   string `yaml:"source"`
+	Target   ZarfContainerTarget `yaml:"target"`
+	Compress bool   `yaml:"compress,omitempty"`
+}
+
+type ZarfContainerTarget struct {
+	Namespace string `yaml:"namespace"`
+	Selector  string `yaml:"selector"`
+	Container string `yaml:"container"`
+	Path      string `yaml:"path"`
+}
+
+type ZarfComponentScripts struct {
+	ShowOutput bool     `yaml:"showOutput,omitempty"`
+	TimeoutSeconds int  `yaml:"timeoutSeconds,omitempty"`
+	Retry      bool     `yaml:"retry,omitempty"`
+	Prepare    []string `yaml:"prepare,omitempty"`
+	Before     []string `yaml:"before,omitempty"`
+	After      []string `yaml:"after,omitempty"`
 }
 
 func Flatten(items []interface{}) ([]string, error) {

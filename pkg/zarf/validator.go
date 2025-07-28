@@ -173,6 +173,30 @@ func (v *PackageValidator) validateWithSDK(packagePath string) (*ValidationResul
 		return nil, fmt.Errorf("image pinning validation failed: %w", imagePinErr)
 	}
 	
+	// Advanced component validation rules
+	componentErr := v.validateComponents(packagePath, result)
+	if componentErr != nil {
+		return nil, fmt.Errorf("component validation failed: %w", componentErr)
+	}
+	
+	// Validate component dependencies
+	depsErr := v.validateComponentDependencies(packagePath, result)
+	if depsErr != nil {
+		return nil, fmt.Errorf("component dependency validation failed: %w", depsErr)
+	}
+	
+	// Validate security best practices
+	securityErr := v.validateSecurityBestPractices(packagePath, result)
+	if securityErr != nil {
+		return nil, fmt.Errorf("security validation failed: %w", securityErr)
+	}
+	
+	// Validate resource constraints and sizing
+	resourceErr := v.validateResourceConstraints(packagePath, result)
+	if resourceErr != nil {
+		return nil, fmt.Errorf("resource validation failed: %w", resourceErr)
+	}
+	
 	return result, nil
 }
 
@@ -389,5 +413,293 @@ func HasValidationErrors(results []*ValidationResult) bool {
 			return true
 		}
 	}
+	return false
+}
+
+// validateComponents performs advanced component validation
+func (v *PackageValidator) validateComponents(packagePath string, result *ValidationResult) error {
+	zarfYaml, err := util.ReadZarfYaml(filepath.Join(packagePath, "zarf.yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to read zarf.yaml for component validation: %w", err)
+	}
+	
+	if len(zarfYaml.Components) == 0 {
+		result.Warnings = append(result.Warnings, "Package has no components defined")
+		return nil
+	}
+	
+	// Check for component naming conventions
+	componentNames := make(map[string]bool)
+	for _, component := range zarfYaml.Components {
+		// Check for duplicate component names
+		if componentNames[component.Name] {
+			result.Errors = append(result.Errors, fmt.Sprintf("Duplicate component name: %s", component.Name))
+		}
+		componentNames[component.Name] = true
+		
+		// Check component naming conventions
+		if !isValidComponentName(component.Name) {
+			result.Warnings = append(result.Warnings, 
+				fmt.Sprintf("Component name '%s' doesn't follow naming conventions (lowercase, hyphens, no spaces)", component.Name))
+		}
+		
+		// Check for required components without default
+		if component.Required && component.Default {
+			result.Warnings = append(result.Warnings, 
+				fmt.Sprintf("Component '%s' is both required and default (redundant)", component.Name))
+		}
+		
+		// Check for empty components
+		if len(component.Files) == 0 && len(component.Charts) == 0 && 
+		   len(component.Manifests) == 0 && len(component.Images) == 0 && 
+		   len(component.Repos) == 0 && len(component.DataInjections) == 0 {
+			result.Warnings = append(result.Warnings, 
+				fmt.Sprintf("Component '%s' appears to be empty (no files, charts, manifests, images, etc.)", component.Name))
+		}
+	}
+	
+	return nil
+}
+
+// validateComponentDependencies checks component dependency relationships
+func (v *PackageValidator) validateComponentDependencies(packagePath string, result *ValidationResult) error {
+	zarfYaml, err := util.ReadZarfYaml(filepath.Join(packagePath, "zarf.yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to read zarf.yaml for dependency validation: %w", err)
+	}
+	
+	if len(zarfYaml.Components) == 0 {
+		return nil
+	}
+	
+	// Build component map for lookup
+	componentMap := make(map[string]*util.ZarfComponent)
+	for i := range zarfYaml.Components {
+		componentMap[zarfYaml.Components[i].Name] = &zarfYaml.Components[i]
+	}
+	
+	// Validate dependencies
+	for _, component := range zarfYaml.Components {
+		for _, dep := range component.DepsWith {
+			// Check if dependency exists
+			if _, exists := componentMap[dep]; !exists {
+				result.Errors = append(result.Errors, 
+					fmt.Sprintf("Component '%s' depends on non-existent component '%s'", component.Name, dep))
+			}
+			
+			// Check for circular dependencies
+			if hasDependencyCycle(component.Name, dep, componentMap, make(map[string]bool)) {
+				result.Errors = append(result.Errors, 
+					fmt.Sprintf("Circular dependency detected between '%s' and '%s'", component.Name, dep))
+			}
+		}
+		
+		// Check for self-dependencies
+		for _, dep := range component.DepsWith {
+			if dep == component.Name {
+				result.Errors = append(result.Errors, 
+					fmt.Sprintf("Component '%s' cannot depend on itself", component.Name))
+			}
+		}
+	}
+	
+	return nil
+}
+
+// validateSecurityBestPractices checks for security best practices
+func (v *PackageValidator) validateSecurityBestPractices(packagePath string, result *ValidationResult) error {
+	zarfYaml, err := util.ReadZarfYaml(filepath.Join(packagePath, "zarf.yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to read zarf.yaml for security validation: %w", err)
+	}
+	
+	for _, component := range zarfYaml.Components {
+		// Check for privileged containers in manifests
+		for _, manifest := range component.Manifests {
+			for _, file := range manifest.Files {
+				if err := v.checkManifestSecurity(filepath.Join(packagePath, file), result, component.Name); err != nil {
+					result.Warnings = append(result.Warnings, 
+						fmt.Sprintf("Failed to analyze manifest security for %s: %v", file, err))
+				}
+			}
+		}
+		
+		// Check for scripts that might contain secrets
+		if len(component.Scripts.Prepare) > 0 || len(component.Scripts.Before) > 0 || len(component.Scripts.After) > 0 {
+			allScripts := append(component.Scripts.Prepare, component.Scripts.Before...)
+			allScripts = append(allScripts, component.Scripts.After...)
+			
+			for _, script := range allScripts {
+				if containsPotentialSecrets(script) {
+					result.Warnings = append(result.Warnings, 
+						fmt.Sprintf("Component '%s' script may contain hardcoded secrets or sensitive data", component.Name))
+				}
+			}
+		}
+		
+		// Check for images from untrusted registries
+		for _, image := range component.Images {
+			if isUntrustedRegistry(image) {
+				result.Warnings = append(result.Warnings, 
+					fmt.Sprintf("Component '%s' uses image from potentially untrusted registry: %s", component.Name, image))
+			}
+		}
+	}
+	
+	return nil
+}
+
+// validateResourceConstraints checks for resource management best practices
+func (v *PackageValidator) validateResourceConstraints(packagePath string, result *ValidationResult) error {
+	zarfYaml, err := util.ReadZarfYaml(filepath.Join(packagePath, "zarf.yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to read zarf.yaml for resource validation: %w", err)
+	}
+	
+	for _, component := range zarfYaml.Components {
+		// Check for large file transfers
+		for _, file := range component.Files {
+			filePath := filepath.Join(packagePath, file.Source)
+			if stat, err := os.Stat(filePath); err == nil {
+				sizeInMB := stat.Size() / (1024 * 1024)
+				if sizeInMB > 100 { // Files larger than 100MB
+					result.Warnings = append(result.Warnings, 
+						fmt.Sprintf("Component '%s' includes large file (%dMB): %s", component.Name, sizeInMB, file.Source))
+				}
+			}
+		}
+		
+		// Check for excessive number of images
+		if len(component.Images) > 10 {
+			result.Warnings = append(result.Warnings, 
+				fmt.Sprintf("Component '%s' includes many images (%d) which may impact package size", component.Name, len(component.Images)))
+		}
+		
+		// Check for charts without resource limits
+		for _, chart := range component.Charts {
+			// Look for values files that might specify resource limits
+			hasResourceLimits := false
+			for _, valuesFile := range chart.ValuesFiles {
+				valuesPath := filepath.Join(packagePath, valuesFile)
+				if content, err := os.ReadFile(valuesPath); err == nil {
+					if strings.Contains(string(content), "limits:") || strings.Contains(string(content), "requests:") {
+						hasResourceLimits = true
+						break
+					}
+				}
+			}
+			
+			if !hasResourceLimits {
+				result.Warnings = append(result.Warnings, 
+					fmt.Sprintf("Chart '%s' in component '%s' may not specify resource limits", chart.Name, component.Name))
+			}
+		}
+	}
+	
+	return nil
+}
+
+// Helper functions
+
+// isValidComponentName checks if component name follows conventions
+func isValidComponentName(name string) bool {
+	// Component names should be lowercase, use hyphens, no spaces
+	if strings.Contains(name, " ") {
+		return false
+	}
+	if strings.ToLower(name) != name {
+		return false
+	}
+	return true
+}
+
+// hasDependencyCycle detects circular dependencies using DFS
+func hasDependencyCycle(start, current string, componentMap map[string]*util.ZarfComponent, visited map[string]bool) bool {
+	if current == start && len(visited) > 0 {
+		return true
+	}
+	
+	if visited[current] {
+		return false
+	}
+	
+	visited[current] = true
+	
+	if component, exists := componentMap[current]; exists {
+		for _, dep := range component.DepsWith {
+			if hasDependencyCycle(start, dep, componentMap, visited) {
+				return true
+			}
+		}
+	}
+	
+	return false
+}
+
+// checkManifestSecurity analyzes Kubernetes manifests for security issues
+func (v *PackageValidator) checkManifestSecurity(manifestPath string, result *ValidationResult, componentName string) error {
+	content, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return err
+	}
+	
+	contentStr := string(content)
+	
+	// Check for privileged security contexts
+	if strings.Contains(contentStr, "privileged: true") {
+		result.Warnings = append(result.Warnings, 
+			fmt.Sprintf("Component '%s' manifest may use privileged containers", componentName))
+	}
+	
+	// Check for host network usage
+	if strings.Contains(contentStr, "hostNetwork: true") {
+		result.Warnings = append(result.Warnings, 
+			fmt.Sprintf("Component '%s' manifest uses host networking", componentName))
+	}
+	
+	// Check for host PID/IPC
+	if strings.Contains(contentStr, "hostPID: true") || strings.Contains(contentStr, "hostIPC: true") {
+		result.Warnings = append(result.Warnings, 
+			fmt.Sprintf("Component '%s' manifest uses host PID or IPC", componentName))
+	}
+	
+	return nil
+}
+
+// containsPotentialSecrets checks scripts for potential hardcoded secrets
+func containsPotentialSecrets(script string) bool {
+	secretPatterns := []string{
+		"password=", "PASSWORD=", "token=", "TOKEN=", "secret=", "SECRET=",
+		"key=", "KEY=", "api_key", "API_KEY", "aws_access", "AWS_ACCESS",
+	}
+	
+	scriptLower := strings.ToLower(script)
+	for _, pattern := range secretPatterns {
+		if strings.Contains(scriptLower, strings.ToLower(pattern)) {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// isUntrustedRegistry checks if an image comes from a potentially untrusted registry
+func isUntrustedRegistry(image string) bool {
+	untrustedRegistries := []string{
+		"docker.io/",  // Public Docker Hub (may be OK but worth flagging)
+		"index.docker.io/",
+	}
+	
+	// If no registry specified, it defaults to docker.io
+	if !strings.Contains(image, "/") || (!strings.Contains(image, ".") && strings.Count(image, "/") == 1) {
+		return true
+	}
+	
+	for _, registry := range untrustedRegistries {
+		if strings.HasPrefix(image, registry) {
+			return true
+		}
+	}
+	
 	return false
 }
