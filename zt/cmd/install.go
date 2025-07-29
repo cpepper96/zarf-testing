@@ -16,8 +16,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/MakeNowJust/heredoc"
+	"github.com/cpepper96/zarf-testing/pkg/config"
+	"github.com/cpepper96/zarf-testing/pkg/zarf"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 )
@@ -70,15 +73,90 @@ func addInstallFlags(flags *flag.FlagSet) {
 }
 
 func install(cmd *cobra.Command, _ []string) error {
-	fmt.Println("Zarf package deployment testing - NOT IMPLEMENTED YET")
-	fmt.Println("This command will deploy and test Zarf packages")
+	fmt.Println("🚀 Zarf package deployment testing")
 	
-	// TODO: Implement actual Zarf package deployment testing
-	// 1. Load configuration
-	// 2. Discover Zarf packages to test
-	// 3. Deploy packages using Zarf SDK
-	// 4. Run deployment validation tests
-	// 5. Clean up after testing
+	// Load configuration
+	configuration, err := config.LoadConfiguration("", cmd, false)
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	// Determine which packages to test
+	var packagesToTest []string
+	all, _ := cmd.Flags().GetBool("all")
+	packages, _ := cmd.Flags().GetStringSlice("packages")
 	
-	return fmt.Errorf("install command not yet implemented - coming in Task 2.4 (Deployment Testing)")
+	if all {
+		fmt.Println("📦 Finding all packages...")
+		allPackages, err := zarf.FindZarfPackages(configuration.ChartDirs)
+		if err != nil {
+			return fmt.Errorf("failed to find packages: %w", err)
+		}
+		packagesToTest = allPackages
+	} else if len(packages) > 0 {
+		fmt.Printf("📦 Testing specified packages: %v\n", packages)
+		// Validate that specified packages exist
+		for _, pkg := range packages {
+			if !zarf.IsZarfPackage(pkg) {
+				return fmt.Errorf("package not found: %s", pkg)
+			}
+		}
+		packagesToTest = packages
+	} else {
+		fmt.Println("📦 Finding changed packages...")
+		changedPackages, err := zarf.FindChangedPackages(configuration.Remote, configuration.TargetBranch, configuration.ChartDirs)
+		if err != nil {
+			return fmt.Errorf("failed to find changed packages: %w", err)
+		}
+		packagesToTest = changedPackages
+	}
+
+	if len(packagesToTest) == 0 {
+		fmt.Println("✅ No packages to test")
+		return nil
+	}
+
+	fmt.Printf("🔧 Testing %d packages: %v\n", len(packagesToTest), packagesToTest)
+
+	// Initialize deployer
+	deployer, err := zarf.NewDeployer(configuration)
+	if err != nil {
+		return fmt.Errorf("failed to initialize deployer: %w", err)
+	}
+
+	// Test each package
+	overallSuccess := true
+	for i, packagePath := range packagesToTest {
+		fmt.Printf("\n📋 [%d/%d] Testing package: %s\n", i+1, len(packagesToTest), packagePath)
+		
+		result, err := deployer.TestPackage(packagePath)
+		if err != nil {
+			fmt.Printf("❌ Package %s failed: %v\n", packagePath, err)
+			overallSuccess = false
+			continue
+		}
+
+		if result.Success {
+			fmt.Printf("✅ Package %s passed all tests\n", packagePath)
+		} else {
+			fmt.Printf("❌ Package %s failed validation\n", packagePath)
+			for _, testResult := range result.ComponentTests {
+				if !testResult.Success {
+					fmt.Printf("  - %s: %s\n", testResult.ComponentName, testResult.Message)
+				}
+			}
+			overallSuccess = false
+		}
+	}
+
+	fmt.Println("\n🏁 Deployment testing complete")
+	
+	if overallSuccess {
+		fmt.Println("✅ All packages passed deployment testing")
+		return nil
+	} else {
+		fmt.Println("❌ Some packages failed deployment testing")
+		os.Exit(1)
+		return nil
+	}
 }
