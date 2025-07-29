@@ -1,211 +1,433 @@
-# Chart Testing
+# Zarf-Testing
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Go Report Card](https://goreportcard.com/badge/github.com/helm/chart-testing)](https://goreportcard.com/report/github.com/helm/chart-testing)
-[![ci](https://github.com/helm/chart-testing/workflows/ci/badge.svg)](https://github.com/helm/chart-testing/actions/workflows/ci.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cpepper96/zarf-testing)](https://goreportcard.com/report/github.com/cpepper96/zarf-testing)
 
-`ct` is the tool for testing Helm charts.
-It is meant to be used for linting and testing pull requests.
-It automatically detects charts changed against the target branch.
+`zt` is the testing tool for [Zarf](https://zarf.dev) packages. It provides comprehensive validation, linting, and deployment testing capabilities for Zarf packages, going beyond what the basic `zarf dev lint` command offers.
 
-## Installation
+Adapted from [helm/chart-testing](https://github.com/helm/chart-testing), this tool brings the same level of rigorous testing to the Zarf ecosystem.
+
+## 🚀 Features
+
+### **✅ MVP Complete**
+- 🔍 **Advanced Package Linting**: Beyond basic Zarf CLI validation
+- 📦 **Package Discovery**: Automatic detection of changed packages via Git
+- 🔄 **Version Increment Validation**: Ensures version bumps when packages change
+- 🖼️ **Image Pinning Validation**: Enforces container image digest pinning
+- 🎨 **Rich Output Formatting**: Colored text, JSON, and GitHub Actions formats
+- ⚙️ **Flexible Configuration**: Viper-based config with Zarf-specific options
+
+### **🔧 Advanced Features**
+- 🧩 **Component Dependency Validation**: Circular dependency detection
+- 🔒 **Security Best Practices**: Privileged container and secret detection
+- 📊 **Resource Constraint Analysis**: Large file and resource limit validation
+- 🚀 **Deployment Testing**: Full package deployment validation (basic implementation)
+- 📋 **Progress Tracking**: Visual progress bars and structured reporting
+
+## 📥 Installation
 
 ### Prerequisites
 
-It is recommended to use the provided Docker image which can be [found on Quay](https://quay.io/repository/helmpack/chart-testing).
-It comes with all necessary tools installed.
-
-* [Helm](http://helm.sh)
-* [Git](https://git-scm.com) (2.17.0 or later)
-* [Yamllint](https://github.com/adrienverge/yamllint)
-* [Yamale](https://github.com/23andMe/Yamale)
-* [Kubectl](https://kubernetes.io/docs/reference/kubectl/overview/)
+- [Zarf CLI](https://zarf.dev) (for `zarf dev lint` integration)
+- [Git](https://git-scm.com) (2.17.0 or later)
+- [Kubectl](https://kubernetes.io/docs/reference/kubectl/overview/) (for deployment testing)
+- Go 1.21+ (for building from source)
 
 ### Binary Distribution
 
-Download the release distribution for your OS from the Releases page:
+Download the release distribution for your OS from the [Releases page](https://github.com/cpepper96/zarf-testing/releases).
 
-https://github.com/helm/chart-testing/releases
+Unpack the `zt` binary and add it to your PATH:
 
-Unpack the `ct` binary, add it to your PATH, and you are good to go!
+```bash
+tar -xzf zt_linux_amd64.tar.gz
+sudo mv zt /usr/local/bin/
+zt --help
+```
+
+### From Source
+
+```bash
+git clone https://github.com/cpepper96/zarf-testing.git
+cd zarf-testing
+go build -o zt ./zt
+./zt --help
+```
 
 ### Docker Image
 
-A Docker image is available at `quay.io/helmpack/chart-testing` with list of
-available tags [here](https://quay.io/repository/helmpack/chart-testing?tab=tags).
-
-### Homebrew
-
-```console
-$ brew install chart-testing
+```bash
+docker run --rm -v $(pwd):/workspace ghcr.io/cpepper96/zarf-testing:latest zt lint
 ```
 
-## Usage
+## 🎯 Quick Start
 
-See documentation for individual commands:
+### Basic Linting
 
-* [ct](doc/ct.md)
-* [ct install](doc/ct_install.md)
-* [ct lint](doc/ct_lint.md)
-* [ct lint-and-install](doc/ct_lint-and-install.md)
-* [ct list-changed](doc/ct_list-changed.md)
-* [ct version](doc/ct_version.md)
+```bash
+# Lint all packages in the packages/ directory
+zt lint --all
 
-For a more extensive how-to guide, please see:
+# Lint specific packages
+zt lint --packages packages/my-package,packages/another-package
 
-* [charts-repo-actions-demo](https://github.com/helm/charts-repo-actions-demo)
+# Lint only changed packages (default)
+zt lint
+```
 
-## Configuration
+### Deployment Testing
 
-`ct` is a command-line application.
-All command-line flags can also be set via environment variables or config file.
-Environment variables must be prefixed with `CT_`.
-Underscores must be used instead of hyphens.
+```bash
+# Test deployment of changed packages
+zt install
 
-CLI flags, environment variables, and a config file can be mixed.
-The following order of precedence applies:
+# Test specific packages
+zt install --packages packages/my-package
 
-1. CLI flags
-1. Environment variables
-1. Config file
+# Combined lint and install
+zt lint-and-install --all
+```
 
-Note that linting requires config file for [yamllint](https://github.com/adrienverge/yamllint) and [yamale](https://github.com/23andMe/Yamale).
-If not specified, these files are search in the current directory, the `.ct` directory in current directory, `$HOME/.ct`, and `/etc/ct`, in that order.
-Samples are provided in the [etc](etc) folder.
+### Output Formats
 
-### Examples
+```bash
+# Colored output (default)
+zt lint --packages packages/my-package
 
-The following example show various way of configuring the same thing:
+# JSON output for automation
+zt lint --packages packages/my-package --output json
 
-#### CLI
+# GitHub Actions format
+zt lint --packages packages/my-package --output github --github-groups
+```
 
-#### Remote repo
+## ⚙️ Configuration
 
-With remote repo:
-
-    ct install --remote upstream --chart-dirs stable,incubator --build-id pr-42
-
-#### Local repo
-
-If you have a chart in current directory and ct installed on the host then you can run:
-
-    ct install --chart-dirs . --charts .
-
-With docker it works with:
-
-    docker run -it --network host --workdir=/data --volume ~/.kube/config:/root/.kube/config:ro --volume $(pwd):/data quay.io/helmpack/chart-testing:v3.7.1 ct install --chart-dirs . --charts .
-
-Notice that `workdir` param is important and must be the same as volume mounted.
-
-
-#### Environment Variables
-
-    export CT_REMOTE=upstream
-    export CT_CHART_DIRS=stable,incubator
-    export CT_BUILD_ID
-
-    ct install
-
-#### Config File
-
-`config.yaml`:
+Create a `zt.yaml` file in your project root:
 
 ```yaml
-remote: upstream
+# Zarf Testing Configuration
+zarf-dirs:
+  - packages
+  - examples
+remote: origin
+target-branch: main
+
+# Validation options
+check-version-increment: true
+validate-image-pinning: true
+validate-package-schema: true
+validate-components: true
+
+# Deployment testing
+deployment-timeout: 15m
+test-timeout: 10m
+skip-clean-up: false
+
+# Output options
+github-groups: false
+```
+
+### Environment Variables
+
+All configuration options can be set via environment variables with the `ZT_` prefix:
+
+```bash
+export ZT_ZARF_DIRS="packages,examples"
+export ZT_TARGET_BRANCH="main"
+export ZT_CHECK_VERSION_INCREMENT="true"
+```
+
+## 📋 Commands
+
+### `zt lint`
+
+Validates Zarf packages using both the Zarf CLI and advanced custom rules.
+
+**Validation Rules:**
+- ✅ Basic Zarf package structure (`zarf dev lint`)
+- ✅ Version increment when components change
+- ✅ Image digest pinning enforcement
+- ✅ Component naming conventions
+- ✅ Component dependency validation
+- ✅ Security best practices
+- ✅ Resource constraint analysis
+
+```bash
+# Lint changed packages
+zt lint
+
+# Lint all packages
+zt lint --all
+
+# Lint specific packages
+zt lint --packages packages/app,packages/db
+
+# Custom validation options
+zt lint --check-version-increment=false --validate-image-pinning=true
+```
+
+### `zt install`
+
+Deploys and tests Zarf packages in a Kubernetes cluster.
+
+**Testing Phases:**
+1. 🔧 Package building with `zarf package create`
+2. 🚀 Package deployment with `zarf package deploy`
+3. ✅ Component validation and health checks
+4. 🧹 Cleanup (optional with `--skip-clean-up`)
+
+```bash
+# Test changed packages
+zt install
+
+# Test specific packages
+zt install --packages packages/my-app
+
+# Skip cleanup for debugging
+zt install --skip-clean-up
+
+# Use custom namespace
+zt install --namespace my-test-namespace
+```
+
+### `zt list-changed`
+
+Lists packages that have changed compared to the target branch.
+
+```bash
+# List changed packages
+zt list-changed
+
+# Compare against specific branch
+zt list-changed --target-branch develop
+
+# Compare against specific remote
+zt list-changed --remote upstream
+```
+
+## 🔍 Advanced Validation Rules
+
+### Component Validation
+- **Naming Conventions**: Lowercase, hyphen-separated names
+- **Duplicate Detection**: Prevents duplicate component names
+- **Empty Components**: Warns about components with no content
+- **Required vs Default**: Flags redundant configuration
+
+### Dependency Validation
+- **Existence Checks**: Ensures all dependencies exist
+- **Circular Dependencies**: Detects and prevents circular references
+- **Self-Dependencies**: Prevents components from depending on themselves
+
+### Security Validation
+- **Privileged Containers**: Detects `privileged: true` in manifests
+- **Host Networking**: Flags `hostNetwork: true` usage
+- **Secret Detection**: Identifies potential hardcoded secrets in scripts
+- **Registry Trust**: Warns about images from untrusted registries
+
+### Resource Validation
+- **Large Files**: Warns about files >100MB
+- **Image Count**: Flags components with excessive images
+- **Resource Limits**: Checks for missing CPU/memory limits
+
+## 🎨 Output Formats
+
+### Text Output (Default)
+```
+📋 Zarf Package Linting
+ℹ️ Testing specified packages: [packages/my-app]
+🔧 [██████████████████████████] 100% (1/1) Testing complete
+✅ All packages passed validation
+```
+
+### JSON Output
+```json
+{
+  "timestamp": "2025-07-27T23:44:34Z",
+  "events": [
+    {
+      "type": "info",
+      "message": "Testing specified packages: [packages/my-app]",
+      "timestamp": "2025-07-27T23:44:34Z"
+    },
+    {
+      "type": "success",
+      "message": "All packages passed validation",
+      "timestamp": "2025-07-27T23:44:34Z"
+    }
+  ]
+}
+```
+
+### GitHub Actions Output
+```
+::group::Zarf Package Linting
+ℹ️ Testing specified packages: [packages/my-app]
+✅ All packages passed validation
+::endgroup::
+```
+
+## 🔧 CI/CD Integration
+
+### GitHub Actions
+
+```yaml
+name: Zarf Package Testing
+on: [pull_request]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Zarf
+        uses: defenseunicorns/setup-zarf@main
+
+      - name: Install Zarf-Testing
+        run: |
+          curl -L https://github.com/cpepper96/zarf-testing/releases/latest/download/zt_linux_amd64.tar.gz | tar xz
+          sudo mv zt /usr/local/bin/
+
+      - name: Lint Packages
+        run: zt lint --output github --github-groups
+
+      - name: Test Deployments
+        run: zt install --output github --github-groups
+        env:
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}
+```
+
+### GitLab CI
+
+```yaml
+zarf-testing:
+  image: ghcr.io/cpepper96/zarf-testing:latest
+  script:
+    - zt lint --output json > lint-results.json
+    - zt install --skip-clean-up
+  artifacts:
+    reports:
+      junit: lint-results.json
+```
+
+## 📚 Migration from Chart-Testing
+
+Zarf-Testing maintains compatibility with chart-testing configurations:
+
+1. **Configuration Migration**: Existing `ct.yaml` files are automatically detected
+2. **Command Similarity**: Similar command structure (`ct lint` → `zt lint`)
+3. **Flag Compatibility**: Most chart-testing flags are supported with Zarf equivalents
+
+### Migration Example
+
+**Before (chart-testing):**
+```yaml
 chart-dirs:
-  - stable
-  - incubator
-build-id: pr-42
+  - charts
+target-branch: main
+check-version-increment: true
 ```
 
-#### Config Usage
-
-    ct install --config config.yaml
-
-
-`ct` supports any format [Viper](https://github.com/spf13/viper) can read, i. e. JSON, TOML, YAML, HCL, and Java properties files.
-
-Notice that if no config file is specified, then `ct.yaml` (or any of the supported formats) is loaded from the current directory, `$HOME/.ct`, or `/etc/ct`, in that order, if found.
-
-
-#### Using private chart repositories
-
-When adding chart-repos you can specify additional arguments for the `helm repo add` command using `helm-repo-extra-args` on a per-repo basis.
-You can also specify OCI registries which will be added using the `helm registry login` command, they also support the `helm-repo-extra-args` for authentication.
-This could for example be used to authenticate a private chart repository.
-
-`config.yaml`:
-
+**After (zarf-testing):**
 ```yaml
-chart-repos:
-  - incubator=https://incubator.io
-  - basic-auth=https://private.com
-  - ssl-repo=https://self-signed.ca
-  - oci-registry=oci://nice-oci-registry.pt
-helm-repo-extra-args:
-  - ssl-repo=--ca-file ./my-ca.crt
+zarf-dirs:
+  - packages
+target-branch: main
+check-version-increment: true
+validate-image-pinning: true  # New Zarf-specific option
 ```
 
-    ct install --config config.yaml --helm-repo-extra-args "basic-auth=--username user --password secret"
+## 🤝 Contributing
 
-## Building from Source
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-`ct` is built using Go 1.13 or higher.
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-`build.sh` is used to build and release the tool.
-It uses [Goreleaser](https://goreleaser.com/) under the covers.
+## 📖 Examples
 
-Note: on MacOS you will need `GNU Coreutils readlink`.
-You can install it with:
-
-```console
-brew install coreutils
+### Package Structure
+```
+my-zarf-package/
+├── zarf.yaml
+├── manifests/
+│   └── deployment.yaml
+├── files/
+│   └── config.json
+└── charts/
+    └── my-chart/
 ```
 
-Then add `gnubin` to your `$PATH`, with:
+### Validation Results
+```bash
+$ zt lint --packages packages/my-app
 
-```console
-echo 'export PATH="$(brew --prefix coreutils)/libexec/gnubin:$PATH"' >> ~/.bash_profile
-bash --login
+📋 Zarf Package Linting
+ℹ️ Testing specified packages: [packages/my-app]
+
+==> Linting packages/my-app
+[WARNING] Issues found:
+  - Component 'My App' doesn't follow naming conventions (use lowercase, hyphens)
+  - Image not pinned with digest - nginx:latest
+  - Component 'web' uses image from potentially untrusted registry: docker.io/nginx:latest
+[INFO] Package validation successful (with warnings)
+
+✅ All packages linted successfully
 ```
 
-To use the build script:
+## 🆘 Troubleshooting
 
-```console
-$ ./build.sh -h
-Usage: build.sh <options>
+### Common Issues
 
-Build ct using Goreleaser.
-
-    -h, --help      Display help
-    -d, --debug     Display verbose output and run Goreleaser with --debug
-    -r, --release   Create a release using Goreleaser. This includes the creation
-                    of a GitHub release and building and pushing the Docker image.
-                    If this flag is not specified, Goreleaser is run with --snapshot
+**"zarf CLI not found"**
+```bash
+# Install Zarf CLI
+curl -sL https://install.zarf.dev | bash
 ```
 
-## Releasing
+**"kubectl not available"**
+```bash
+# For deployment testing, ensure kubectl is configured
+kubectl cluster-info
+```
 
-### Prepare Release
+**"package not found"**
+```bash
+# Ensure package path contains zarf.yaml
+ls packages/my-package/zarf.yaml
+```
 
-Before a release is created, versions have to be updated in the examples.
-A pull request needs to be created for this, which should be merged right before the release is cut.
-Here's a previous one for reference: https://github.com/helm/chart-testing/pull/89
+### Debug Mode
 
-### Create Release
+```bash
+# Enable debug output
+zt lint --debug
 
-The release workflow is [dispatched from github actions](https://github.com/helm/chart-testing/actions)
-Versions must start with a lower-case `v`, e. g. `v3.7.1`.
+# Print configuration
+zt lint --print-config
+```
 
-## Supported versions
+## 📜 License
 
-The previous MAJOR version will be supported for three months after each new MAJOR release.
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 
-Within this support window, pull requests for the previous MAJOR version should be made against the previous release branch.
-For example, if the current MAJOR version is `v2`, the pull request base branch should be `release-v1`.
+## 🙏 Acknowledgments
 
-## Upgrading
+- [Helm Chart Testing](https://github.com/helm/chart-testing) - Original inspiration and architecture
+- [Zarf](https://zarf.dev) - The amazing DevSecOps platform this tool supports
+- [Defense Unicorns](https://defenseunicorns.com) - Creators of Zarf
 
-When upgrading from `< v2.0.0` you will also need to change the usage in your scripts.
-This is because, while the [v2.0.0](https://github.com/helm/chart-testing/releases/tag/v2.0.0) release has parity with `v1`, it was refactored from a bash library to Go so there are minor syntax differences.
-Compare [v1 usage](https://github.com/helm/chart-testing/tree/release-v1#usage) with this (`v2`) version's README [usage](#usage) section above.
+## 🔗 Links
+
+- [Zarf Documentation](https://docs.zarf.dev)
+- [Zarf GitHub](https://github.com/zarf-dev/zarf)
+- [Chart Testing](https://github.com/helm/chart-testing)
+- [Issues](https://github.com/cpepper96/zarf-testing/issues)
+- [Discussions](https://github.com/cpepper96/zarf-testing/discussions)

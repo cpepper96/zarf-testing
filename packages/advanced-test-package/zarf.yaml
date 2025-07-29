@@ -1,0 +1,42 @@
+kind: ZarfPackageConfig
+metadata:
+  name: advanced-test-package
+  description: Advanced test package to demonstrate validation rules
+  version: 2.0.0
+
+components:
+  - name: Test Component 1
+    description: Component with uppercase name to test naming conventions
+    required: true
+    default: true
+    files:
+      - source: README.md
+        target: /tmp/readme.md
+    images:
+      - nginx:latest
+      - docker.io/redis:5.0
+    scripts:
+      prepare: 
+        - "echo 'PASSWORD=secret123' > /tmp/config"
+        - "curl -H 'Authorization: Bearer TOKEN=abc123' https://api.example.com"
+
+  - name: dependency-test
+    description: Component with dependencies
+    depsWith: ["non-existent-component", "circular-dep"]
+
+  - name: circular-dep
+    description: Component with circular dependency
+    depsWith: ["dependency-test"]
+
+  - name: empty-component
+    description: Component with no actual content
+
+  - name: security-test
+    description: Component with security issues
+    manifests:
+      - name: privileged-manifest
+        files:
+          - privileged-deployment.yaml
+    images:
+      - docker.io/untrusted/image:latest
+      - public-registry.com/nginx:1.20@sha256:abc123
