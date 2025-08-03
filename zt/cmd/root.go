@@ -64,7 +64,7 @@ func Execute() {
 
 func addCommonFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&cfgFile, "config", "", "Config file")
-	flags.String("remote", "origin", "The name of the Git remote used to identify changed charts")
+	flags.String("remote", "origin", "The name of the Git remote used to identify changed packages")
 	flags.String("target-branch", "main", "The name of the target branch used to identify changed packages")
 	flags.String("since", "HEAD", "The Git reference used to identify changed packages")
 	flags.StringSlice("zarf-dirs", []string{"packages"}, heredoc.Doc(`

@@ -5,24 +5,15 @@
 
 `zt` is the testing tool for [Zarf](https://zarf.dev) packages. It provides comprehensive validation, linting, and deployment testing capabilities for Zarf packages, going beyond what the basic `zarf dev lint` command offers.
 
-Adapted from [helm/chart-testing](https://github.com/helm/chart-testing), this tool brings the same level of rigorous testing to the Zarf ecosystem.
+Adapted from [helm/chart-testing](https://github.com/helm/chart-testing)
 
 ## 🚀 Features
-
-### **✅ MVP Complete**
 - 🔍 **Advanced Package Linting**: Beyond basic Zarf CLI validation
 - 📦 **Package Discovery**: Automatic detection of changed packages via Git
 - 🔄 **Version Increment Validation**: Ensures version bumps when packages change
 - 🖼️ **Image Pinning Validation**: Enforces container image digest pinning
 - 🎨 **Rich Output Formatting**: Colored text, JSON, and GitHub Actions formats
 - ⚙️ **Flexible Configuration**: Viper-based config with Zarf-specific options
-
-### **🔧 Advanced Features**
-- 🧩 **Component Dependency Validation**: Circular dependency detection
-- 🔒 **Security Best Practices**: Privileged container and secret detection
-- 📊 **Resource Constraint Analysis**: Large file and resource limit validation
-- 🚀 **Deployment Testing**: Full package deployment validation (basic implementation)
-- 📋 **Progress Tracking**: Visual progress bars and structured reporting
 
 ## 📥 Installation
 
@@ -52,12 +43,6 @@ git clone https://github.com/cpepper96/zarf-testing.git
 cd zarf-testing
 go build -o zt ./zt
 ./zt --help
-```
-
-### Docker Image
-
-```bash
-docker run --rm -v $(pwd):/workspace ghcr.io/cpepper96/zarf-testing:latest zt lint
 ```
 
 ## 🎯 Quick Start
@@ -259,87 +244,6 @@ zt list-changed --remote upstream
 }
 ```
 
-### GitHub Actions Output
-```
-::group::Zarf Package Linting
-ℹ️ Testing specified packages: [packages/my-app]
-✅ All packages passed validation
-::endgroup::
-```
-
-## 🔧 CI/CD Integration
-
-### GitHub Actions
-
-```yaml
-name: Zarf Package Testing
-on: [pull_request]
-
-jobs:
-  lint-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install Zarf
-        uses: defenseunicorns/setup-zarf@main
-
-      - name: Install Zarf-Testing
-        run: |
-          curl -L https://github.com/cpepper96/zarf-testing/releases/latest/download/zt_linux_amd64.tar.gz | tar xz
-          sudo mv zt /usr/local/bin/
-
-      - name: Lint Packages
-        run: zt lint --output github --github-groups
-
-      - name: Test Deployments
-        run: zt install --output github --github-groups
-        env:
-          KUBECONFIG: ${{ secrets.KUBECONFIG }}
-```
-
-### GitLab CI
-
-```yaml
-zarf-testing:
-  image: ghcr.io/cpepper96/zarf-testing:latest
-  script:
-    - zt lint --output json > lint-results.json
-    - zt install --skip-clean-up
-  artifacts:
-    reports:
-      junit: lint-results.json
-```
-
-## 📚 Migration from Chart-Testing
-
-Zarf-Testing maintains compatibility with chart-testing configurations:
-
-1. **Configuration Migration**: Existing `ct.yaml` files are automatically detected
-2. **Command Similarity**: Similar command structure (`ct lint` → `zt lint`)
-3. **Flag Compatibility**: Most chart-testing flags are supported with Zarf equivalents
-
-### Migration Example
-
-**Before (chart-testing):**
-```yaml
-chart-dirs:
-  - charts
-target-branch: main
-check-version-increment: true
-```
-
-**After (zarf-testing):**
-```yaml
-zarf-dirs:
-  - packages
-target-branch: main
-check-version-increment: true
-validate-image-pinning: true  # New Zarf-specific option
-```
 
 ## 🤝 Contributing
 
@@ -421,13 +325,11 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 ## 🙏 Acknowledgments
 
 - [Helm Chart Testing](https://github.com/helm/chart-testing) - Original inspiration and architecture
-- [Zarf](https://zarf.dev) - The amazing DevSecOps platform this tool supports
-- [Defense Unicorns](https://defenseunicorns.com) - Creators of Zarf
+- [Zarf](https://zarf.dev)
 
 ## 🔗 Links
 
 - [Zarf Documentation](https://docs.zarf.dev)
 - [Zarf GitHub](https://github.com/zarf-dev/zarf)
-- [Chart Testing](https://github.com/helm/chart-testing)
 - [Issues](https://github.com/cpepper96/zarf-testing/issues)
 - [Discussions](https://github.com/cpepper96/zarf-testing/discussions)

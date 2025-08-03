@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/Masterminds/semver v1.5.0
+	github.com/fatih/color v1.18.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/mattn/go-shellwords v1.0.12
@@ -14,13 +15,13 @@ require (
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
 	gopkg.in/yaml.v2 v2.4.0
-	helm.sh/helm/v3 v3.18.1
+	helm.sh/helm/v3 v3.18.4
+
 )
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/fatih/color v1.18.0 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
