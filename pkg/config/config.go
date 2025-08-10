@@ -92,6 +92,21 @@ type Configuration struct {
 	ChartDirs               []string      `mapstructure:"chart-dirs"`
 	Charts                  []string      `mapstructure:"charts"`
 	ExcludedCharts          []string      `mapstructure:"excluded-charts"`
+	LintConf                string        `mapstructure:"lint-conf"`
+	ChartYamlSchema         string        `mapstructure:"chart-yaml-schema"`
+	ValidateMaintainers     bool          `mapstructure:"validate-maintainers"`
+	ValidateChartSchema     bool          `mapstructure:"validate-chart-schema"`
+	ValidateYaml            bool          `mapstructure:"validate-yaml"`
+	ProcessAllCharts        bool          `mapstructure:"process-all-charts"`
+	ChartRepos              []string      `mapstructure:"chart-repos"`
+	HelmRepoExtraArgs       []string      `mapstructure:"helm-repo-extra-args"`
+	HelmExtraArgs           string        `mapstructure:"helm-extra-args"`
+	HelmLintExtraArgs       string        `mapstructure:"helm-lint-extra-args"`
+	SkipMissingValues       bool          `mapstructure:"skip-missing-values"`
+	ReleaseLabel            string        `mapstructure:"release-label"`
+	UseHelmignore           bool          `mapstructure:"use-helmignore"`
+	HelmDependencyExtraArgs []string      `mapstructure:"helm-dependency-extra-args"`
+	AdditionalCommands      []string      `mapstructure:"additional-commands"`
 }
 
 func LoadConfiguration(cfgFile string, cmd *cobra.Command, printConfig bool) (*Configuration, error) {
