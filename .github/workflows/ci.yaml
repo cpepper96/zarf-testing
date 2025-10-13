@@ -25,7 +25,7 @@ jobs:
           go-version-file: './go.mod'
           check-latest: true
 
-      - uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+      # Removed helm setup - not needed for Zarf testing
 
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # v6.3.0
@@ -88,8 +88,8 @@ jobs:
 
       - name: generate docs
         run: |
-          go build -o ct-bin ./ct/main.go
-          ./ct-bin doc-gen
+          go build -o zt-bin ./zt/main.go
+          ./zt-bin doc-gen
           git_status="$(git status --porcelain)"
           if [[ ${git_status} ]]; then
               echo -e 'Documentation is outdated. Please update the docs\n'
